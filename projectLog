@@ -1,0 +1,144 @@
+创建Hive表
+
+create table IF NOT EXISTS source_log (
+	ip string,
+	time string,
+	traffic bigint,
+	type string
+)
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.RegexSerDe'
+WITH SERDEPROPERTIES (
+  "input.regex" = "(.*?) - - (.*?) \"[POST|GET|HEAD].*?HTTP.*?[0-9]{3} (.*?) .*? \"(.*?)\" .*?"
+)
+STORED AS TEXTFILE;
+
+
+
+
+
+将日志信息导入到Hive表
+load data local inpath '/soft/2bw.log' into table source_log;
+
+
+创建udf项目，打成jar包，上传到Linux
+
+add jar /soft/udf.jar;
+create temporary function date2day as 'cn.liuxining.udf.Date2DayUDF';
+create temporary function date2time as 'cn.liuxining.udf.DateFormatUDF';
+create temporary function ip2region as 'cn.liuxining.udf.Ip2RegionUDF';
+create temporary function pathtype as 'cn.liuxining.udf.PathTypeUDF';
+create temporary function pathid as 'cn.liuxining.udf.PathIdUDF';
+
+
+
+create table clean_log(
+	region string,
+	time string,
+	day string,
+	traffic bigint,
+	type string,
+	typeid string
+)
+row format delimited fields terminated by '\t';
+
+
+
+insert overwrite table clean_log 
+select ip2region(ip),date2time(time),date2day(time),traffic,pathtype(type),pathid(type) 
+from source_log where type like '%video/%' or type like '%article/%';
+
+
+
+
+
+创建userportrait用户画像项目（使用Spring boot）
+
+
+
+
+
+
+带id
+
+
+create table result_log(
+	typeid string,
+	num bigint,
+	condition string,
+	id string
+)
+row format delimited fields terminated by '\t';
+
+
+
+
+
+课程自己
+insert into table result_log 
+select typeid,count(*) as num,type,concat_ws('_',typeid,type) from clean_log where typeid is not null and (type='video' or type='article')  group by type,typeid order by num desc;
+
+地市自己
+insert into table result_log
+select typeid,count(*) as num,region,concat_ws('_',typeid,region) from clean_log where typeid is not null and (type='video' or type='article') group by region,typeid order by num desc;
+
+流量自己
+insert into table result_log 
+select typeid,sum(traffic) as sum,'traffic',concat_ws('_',typeid,'traffic') from clean_log where typeid is not null and (type='video' or type='article') group by typeid order by sum desc limit 5; 
+
+课程+地市
+insert into table result_log 
+select typeid,count(*) as num,concat_ws('_',type,region),concat_ws('_',typeid,concat_ws('_',type,region)) from clean_log where typeid is not null and (type='video' or type='article')  group by type,typeid,region order by num desc;
+
+课程+流量
+insert into table result_log 
+select typeid,sum(traffic) as sum,concat_ws('_',type,'traffic'),concat_ws('_',typeid,concat_ws('_',type,'traffic')) from clean_log where typeid is not null and (type='video' or type='article')  group by type,typeid order by sum desc;
+
+
+地市+流量
+insert into table result_log 
+select typeid,sum(traffic) as sum,concat_ws('_',region,'traffic'),concat_ws('_',typeid,concat_ws('_',region,'traffic')) from clean_log where typeid is not null and (type='video' or type='article')  group by typeid,region order by sum desc;
+
+
+课程+地市+流量
+insert into table result_log 
+select typeid,sum(traffic) as sum,concat_ws('_',type,concat_ws('_',region,'traffic')),concat_ws('_',typeid,concat_ws('_',type,concat_ws('_',region,'traffic'))) from clean_log where typeid is not null and (type='video' or type='article')  group by type,typeid,region order by sum desc;
+
+
+create table result(
+	typeid string,
+	num bigint,
+	condition string,
+	id string
+)
+row format delimited fields terminated by '\t';
+
+
+
+
+
+select * from result_log;
+
+
+
+
+
+
+
+insert overwrite table result 
+select typeid,num,condition,id 
+from (
+select typeid,num,condition,id,row_number() over (partition by condition order by num desc ) rank  
+from result_log
+) a
+where a.rank<=5;
+
+
+
+mysql数据库创建result表
+
+
+将sqoop中的数据表导入到mysql
+./sqoop export --connect jdbc:mysql://192.168.119.136:3306/userportraitproject --username root --password 123456 --table result --export-dir /user/hive/warehouse/result/ --input-fields-terminated-by '\t';
+
+
+

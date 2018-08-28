@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>用户画像</title>
+    <link rel="stylesheet" type="text/css" href="bootstrap-3.3.5-dist/css/bootstrap.min.css">
+</head>
+<body>
+	<div class="container">
+		<div class="col-md-2"></div>
+		<div class="col-md-8">
+			<h1 class="text-center text-info">日志统计</h1>
+			<table class="table table-striped table-active table-hover table-bordered">
+				<tr>
+					<td>课程类型</td>
+					<td>
+						<select class="form-control" id="courseTypeSel" disabled="disabled">
+							<option value="video">视频</option>
+							<option value="article">文章</option>
+						</select>
+					</td>
+					<td>
+						<input type="checkbox" name="courseTypeInput" id="courseTypeInput" />
+					</td>
+				</tr>
+				<tr>
+					<td>地区</td>
+					<td>
+						<select class="form-control" style="float: left;width: 50%;" name="province" id="province" disabled="disabled">
+							
+						</select>
+
+						<select class="form-control" style="float: left;width: 50%;" name="city" id="city" disabled="disabled">
+							
+						</select>
+
+						<!-- <select class="form-control" style="float: left;width: 33%;" name="area" id="area">
+							
+						</select> -->
+					</td>
+					<td>
+						<input type="checkbox" name="regionInput" id="regionInput" />
+					</td>
+				</tr>
+				<tr>
+					<td>流量</td>
+					<td>
+						
+					</td>
+					<td>
+						<input type="checkbox" name="trafficInput" id="trafficInput" />
+					</td>
+				</tr>
+				<tr>
+<!-- 					<td>TopN</td>
+					<td>
+						<select class="form-control" id="topNSel">
+							<option value="5" selected="selected">5</option>
+							<option value="10">10</option>
+							<option value="15">15</option>
+							<option value="20">20</option>
+						</select>
+					</td> -->
+					<td></td>
+					<td></td>
+					<td><button class="btn btn-primary" onclick="toQuery()">查询</button></td>
+				</tr>
+			</table>
+
+
+			<div>
+				<div id="showDiv" style="height: 600px;width: 700px;"></div>
+			</div>
+
+
+		</div>
+		<div class="col-md-2"></div>
+	</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" src="js/jquery-1.12.1.js"></script>
+<script type="text/javascript" src="bootstrap-3.3.5-dist/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="js/echarts.js"></script>
+<script type="text/javascript">
+
+	$(document).ready(function() {
+
+		getDistrict(0,'province');
+
+		$("#province").change(function(){
+			getDistrict($(this).val(),"city");
+		});
+
+		// $("#city").change(function(){
+		// 	getDistrict($(this).val(),"area");
+		// });
+
+
+		$("#courseTypeInput").change(function(){
+			if($('#courseTypeInput').prop('checked')){
+				$("#courseTypeSel").prop('disabled', false);
+			}
+			else{
+				$("#courseTypeSel").prop('disabled', true);	
+			}
+		});
+
+		$("#regionInput").change(function(){
+			if($('#regionInput').prop('checked')){
+				$("#province").prop('disabled', false);
+				$("#city").prop('disabled', false);
+				// $("#area").prop('disabled', false);
+			}
+			else{
+				$("#province").prop('disabled', true);
+				$("#city").prop('disabled', true);
+				// $("#area").prop('disabled', true);	
+			}
+		});	
+
+		// $("#quertBtn").click(function(){
+		// 	toQuery();
+		// });
+
+
+
+
+	});
+
+	function getDistrict(pid,sid){
+		$.get('log/getDistrict.action?pid=' + pid, function(data) {
+			if(data != null){
+				var content = '<option value="0">全部</option>';
+				$.each(data, function(index, item) {
+					content += '<option value="' + item.id + '">' + item.name + '</option>'
+				});
+				$("#" + sid).html(content);
+				$("#" + sid).nextAll().html("<option value=''>全部</option>");
+			}
+		});
+
+	}
+
+	function toQuery(){
+		// var conditionStr = '[';
+		var course = null;
+		var region = null;
+		if($('#courseTypeInput').prop('checked')){
+			// conditionStr += '{"key":"type","value":"' + $("#courseTypeSel").val() + '","logical":"and"}';
+			course = $("#courseTypeSel").val();
+		}
+		if($('#regionInput').prop('checked')){
+			// conditionStr += '{"key":"region","value":"';
+			// var provinceStr = $("#province").find("option:selected").text();
+			// if(provinceStr != '全部'){
+			// 	conditionStr += provinceStr;
+			// }
+			// var cityStr = $("#city").find("option:selected").text();
+			// if(cityStr != '全部'){
+			// 	conditionStr += '|';
+			// 	conditionStr += provinceStr;
+			// }
+
+			// var areaStr = $("#area").find("option:selected").text();
+			// if(areaStr != '全部'){
+			// 	conditionStr += '|';
+			// 	conditionStr += areaStr;
+			// }
+			// conditionStr += '","logical":"and"}';
+			if($("#province").val() == '0'){
+				alert("请选择省份");
+				return ;
+			}
+			else if($("#city").val() == '0'){
+				alert("请选择城市");
+				return ;
+			}
+			region = $("#city").find("option:selected").text();
+		}
+		// conditionStr += ']';
+
+
+
+
+		var type = 'num';
+		if($('#trafficInput').prop('checked')){
+			type = 'sum';
+		}
+
+		// if(type == 'num'){
+		// 	if(course == null || course == '' || region == null || region == ''){
+		// 		alert("请选择统计条件！");
+		// 		return ;
+		// 	}
+		// }
+
+		// var n = $("#topNSel").val();
+
+		$.post('log/getStatisticResult.action', 
+			{
+				'course': course,
+				'region':region,
+				'type':type
+			},
+			 function(data, textStatus, xhr) {
+				var legendData = [];
+		    	var seriesData = [];
+		    	var selected = {};
+
+		    	if(data != null){
+		    		if(data == 'none'){
+		    			$("#showDiv").html("没有符合条件的数据！");
+		    			return ;
+		    		}
+		    		data = eval("(" + data + ")");
+		    		// alert(data);
+		    		var resultType = data.resultType;
+		    		var text = data.text;
+		    		var subText = data.subText;
+		    		// alert(data.text);
+		    		// alert(data.subText);
+		    		
+		    		// alert(resultType)
+		    		// alert(data.result);
+		    		// var json = eval("(" + data.result + ")");
+		    		// alert(json);
+		    		$.each(data.result, function(index, item) {
+		    			legendData.push(item.typeid);
+				        seriesData.push({
+				            name: item.typeid,
+				            value: item.num
+				        });
+				        selected[item.typeId] = true;
+		    		});
+		    		// alert(legendData);
+		    		// alert(seriesData);
+
+		    		var dom = document.getElementById("showDiv");
+					var myChart = echarts.init(dom);
+					var app = {};
+					option = null;
+					// var data = genData(50);
+
+					option = {
+					    title : {
+					        text: text,
+					        subtext: subText,
+					        x:'center'
+					    },
+					    tooltip : {
+					        trigger: 'item',
+					        formatter: "{a} <br/>{b} : {c} ({d}%)"
+					    },
+					    legend: {
+					        type: 'scroll',
+					        orient: 'vertical',
+					        right: 10,
+					        top: 20,
+					        bottom: 20,
+					        data: legendData,
+
+					        selected: selected
+					    },
+					    series : [
+					        {
+					            name: resultType,
+					            type: 'pie',
+					            radius : '55%',
+					            center: ['40%', '50%'],
+					            data: seriesData,
+					            itemStyle: {
+					                emphasis: {
+					                    shadowBlur: 10,
+					                    shadowOffsetX: 0,
+					                    shadowColor: 'rgba(0, 0, 0, 0.5)'
+					                }
+					            }
+					        }
+					    ]
+					};
+
+
+					if (option && typeof option === "object") {
+					    myChart.setOption(option, true);
+					}
+				}
+				else{
+					$("#showDiv").html("没有符合条件的数据！");
+				}
+		});
+
+		
+	}
+</script>
+</body>
+</html>
